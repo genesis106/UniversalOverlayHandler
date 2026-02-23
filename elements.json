@@ -1,0 +1,312 @@
+[
+    {
+        "id": 1,
+        "type": "button",
+        "color": "green",
+        "text": "Log In",
+        "coordinates": {
+            "x": 1078.0374755859375,
+            "y": 16,
+            "width": 71.8250732421875,
+            "height": 36
+        }
+    },
+    {
+        "id": 2,
+        "type": "button",
+        "color": "green",
+        "text": "Sign Up",
+        "coordinates": {
+            "x": 1165.862548828125,
+            "y": 16,
+            "width": 82.9375,
+            "height": 36
+        }
+    },
+    {
+        "id": 3,
+        "type": "button",
+        "color": "green",
+        "text": "Start Tracking Now",
+        "coordinates": {
+            "x": 518.3875122070312,
+            "y": 352.8000183105469,
+            "width": 228.01251220703125,
+            "height": 40
+        }
+    },
+    {
+        "id": 4,
+        "type": "button",
+        "color": "green",
+        "text": "Add Income",
+        "coordinates": {
+            "x": 81.20000457763672,
+            "y": 821.6000366210938,
+            "width": 510.40003204345703,
+            "height": 36
+        }
+    },
+    {
+        "id": 5,
+        "type": "button",
+        "color": "green",
+        "text": "Select category",
+        "coordinates": {
+            "x": 673.2000122070312,
+            "y": 835.6000366210938,
+            "width": 151.82501220703125,
+            "height": 36
+        }
+    },
+    {
+        "id": 6,
+        "type": "button",
+        "color": "green",
+        "text": "Add Expense",
+        "coordinates": {
+            "x": 673.2000122070312,
+            "y": 887.6000366210938,
+            "width": 510.39996337890625,
+            "height": 36
+        }
+    },
+    {
+        "id": 7,
+        "type": "link",
+        "color": "blue",
+        "text": "Home",
+        "coordinates": {
+            "x": 347.45001220703125,
+            "y": 22,
+            "width": 43.462493896484375,
+            "height": 24
+        }
+    },
+    {
+        "id": 8,
+        "type": "link",
+        "color": "blue",
+        "text": "Expense Tracking",
+        "coordinates": {
+            "x": 414.9125061035156,
+            "y": 22,
+            "width": 131.10000610351562,
+            "height": 24
+        }
+    },
+    {
+        "id": 9,
+        "type": "link",
+        "color": "blue",
+        "text": "Saving Goals",
+        "coordinates": {
+            "x": 570.0125122070312,
+            "y": 22,
+            "width": 96.5,
+            "height": 24
+        }
+    },
+    {
+        "id": 10,
+        "type": "link",
+        "color": "blue",
+        "text": "Advisory Hub",
+        "coordinates": {
+            "x": 690.5125122070312,
+            "y": 22,
+            "width": 98.4375,
+            "height": 24
+        }
+    },
+    {
+        "id": 11,
+        "type": "link",
+        "color": "blue",
+        "text": "Contact Us",
+        "coordinates": {
+            "x": 977.4625244140625,
+            "y": 22,
+            "width": 84.574951171875,
+            "height": 24
+        }
+    },
+    {
+        "id": 12,
+        "type": "link",
+        "color": "blue",
+        "text": "Features",
+        "coordinates": {
+            "x": 332.20001220703125,
+            "y": 2302.425048828125,
+            "width": 65.46249389648438,
+            "height": 17.60009765625
+        }
+    },
+    {
+        "id": 13,
+        "type": "link",
+        "color": "blue",
+        "text": "Pricing",
+        "coordinates": {
+            "x": 332.20001220703125,
+            "y": 2334.425048828125,
+            "width": 50.79998779296875,
+            "height": 17.60009765625
+        }
+    },
+    {
+        "id": 14,
+        "type": "link",
+        "color": "blue",
+        "text": "About",
+        "coordinates": {
+            "x": 332.20001220703125,
+            "y": 2366.425048828125,
+            "width": 44.537506103515625,
+            "height": 17.60009765625
+        }
+    },
+    {
+        "id": 15,
+        "type": "link",
+        "color": "blue",
+        "text": "Blog",
+        "coordinates": {
+            "x": 332.20001220703125,
+            "y": 2398.425048828125,
+            "width": 33.98748779296875,
+            "height": 17.60009765625
+        }
+    },
+    {
+        "id": 16,
+        "type": "link",
+        "color": "blue",
+        "text": "Help Center",
+        "coordinates": {
+            "x": 648.4000244140625,
+            "y": 2302.425048828125,
+            "width": 88.7874755859375,
+            "height": 17.60009765625
+        }
+    },
+    {
+        "id": 17,
+        "type": "link",
+        "color": "blue",
+        "text": "Privacy Policy",
+        "coordinates": {
+            "x": 648.4000244140625,
+            "y": 2334.425048828125,
+            "width": 102.89996337890625,
+            "height": 17.60009765625
+        }
+    },
+    {
+        "id": 18,
+        "type": "link",
+        "color": "blue",
+        "text": "Terms of Service",
+        "coordinates": {
+            "x": 648.4000244140625,
+            "y": 2366.425048828125,
+            "width": 124.0999755859375,
+            "height": 17.60009765625
+        }
+    },
+    {
+        "id": 19,
+        "type": "link",
+        "color": "blue",
+        "text": "FAQ",
+        "coordinates": {
+            "x": 648.4000244140625,
+            "y": 2398.425048828125,
+            "width": 30.26251220703125,
+            "height": 17.60009765625
+        }
+    },
+    {
+        "id": 20,
+        "type": "link",
+        "color": "blue",
+        "text": "support@fintrack.com",
+        "coordinates": {
+            "x": 992.6000366210938,
+            "y": 2299.22509765625,
+            "width": 165.81243896484375,
+            "height": 24
+        }
+    },
+    {
+        "id": 21,
+        "type": "link",
+        "color": "blue",
+        "text": "+1 (234) 567-890",
+        "coordinates": {
+            "x": 992.6000366210938,
+            "y": 2335.22509765625,
+            "width": 128.27496337890625,
+            "height": 24
+        }
+    },
+    {
+        "id": 22,
+        "type": "input",
+        "input_type": "number",
+        "color": "orange",
+        "name": "",
+        "placeholder": "0.00",
+        "coordinates": {
+            "x": 81.20000457763672,
+            "y": 769.6000366210938,
+            "width": 510.40003204345703,
+            "height": 36
+        }
+    },
+    {
+        "id": 23,
+        "type": "input",
+        "input_type": "number",
+        "color": "orange",
+        "name": "",
+        "placeholder": "0.00",
+        "coordinates": {
+            "x": 673.2000122070312,
+            "y": 769.6000366210938,
+            "width": 510.39996337890625,
+            "height": 36
+        }
+    },
+    {
+        "id": 24,
+        "type": "dropdown",
+        "dropdown_type": "custom",
+        "color": "purple",
+        "options": [
+            "About",
+            "Healthcare",
+            "Privacy Policy",
+            "Loan-EMI",
+            "Others",
+            "Food & Grocery",
+            "Features",
+            "FAQ",
+            "Education",
+            "Pricing",
+            "Help Center",
+            "Travel",
+            "Entertainment",
+            "Rents & Bills",
+            "Blog",
+            "Terms of Service"
+        ],
+        "coordinates": {
+            "x": 673.2000122070312,
+            "y": 835.6000366210938,
+            "width": 151.82501220703125,
+            "height": 36
+        }
+    }
+]
