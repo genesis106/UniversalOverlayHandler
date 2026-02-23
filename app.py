@@ -9,10 +9,9 @@ import base64
 # CONFIGURATION
 # ================================
 
-TARGET_URL = "https://www.amazon.com/"  # 🔁 CHANGE THIS
+TARGET_URL = "https://www.amazon.com/"
 ACTION_TYPE = "CLICK_BUTTON"  # CLICK_BUTTON | FILL_INPUT | SELECT_DROPDOWN | CLICK_LINK
-INSTRUCTION = "Click the login button"
-
+INSTRUCTION = "Search for shoes"
 
 # ================================
 # ELEMENT COLLECTION (ACTION-AWARE)
@@ -22,8 +21,15 @@ def collect_elements(page, action_type):
     collected_data = []
     index = 1
 
-    page.evaluate("window.scrollTo(0,0)")
-    time.sleep(1)
+    # Ensure page fully loaded
+    page.wait_for_load_state("load")
+    page.wait_for_timeout(2000)
+
+    # Ensure Amazon search bar is present
+    try:
+        page.wait_for_selector("#twotabsearchtextbox", timeout=5000)
+    except:
+        pass
 
     if action_type == "CLICK_BUTTON":
         elements = page.query_selector_all(
@@ -31,8 +37,9 @@ def collect_elements(page, action_type):
         )
 
     elif action_type == "FILL_INPUT":
+        # Cleaner filtering (avoid hidden garbage inputs)
         elements = page.query_selector_all(
-            "input:not([type='submit']):not([type='button']), textarea"
+            "input[type='text'], input[type='search'], textarea"
         )
 
     elif action_type == "SELECT_DROPDOWN":
@@ -55,12 +62,18 @@ def collect_elements(page, action_type):
             if not box:
                 continue
 
+            # Skip zero-size elements
+            if box["width"] < 5 or box["height"] < 5:
+                continue
+
             text = element.evaluate("el => el.textContent.trim()") or ""
             placeholder = element.get_attribute("placeholder") or ""
             name = element.get_attribute("name") or ""
             input_type = element.get_attribute("type") or ""
             aria_label = element.get_attribute("aria-label") or ""
             role = element.get_attribute("role") or ""
+            element_id_attr = element.get_attribute("id") or ""
+            class_attr = element.get_attribute("class") or ""
 
             collected_data.append({
                 "id": index,
@@ -71,12 +84,14 @@ def collect_elements(page, action_type):
                 "input_type": input_type,
                 "aria_label": aria_label,
                 "role": role,
+                "element_id_attr": element_id_attr,
+                "class_attr": class_attr,
                 "coordinates": box
             })
 
             index += 1
 
-        except:
+        except Exception:
             continue
 
     return collected_data
@@ -131,14 +146,13 @@ with sync_playwright() as p:
     page = browser.new_page(device_scale_factor=1)
 
     page.goto(TARGET_URL)
-    page.wait_for_load_state("load")
 
     print(f"🔍 Collecting elements for action: {ACTION_TYPE}")
     elements = collect_elements(page, ACTION_TYPE)
     print(f"✅ Collected {len(elements)} relevant elements")
 
-    print("📸 Taking full-page screenshot...")
-    screenshot_bytes = page.screenshot(full_page=True)
+    print("📸 Taking FULL-PAGE screenshot...")
+    screenshot_bytes = page.screenshot(full_page=True)  # NOT CHANGED
     img = Image.open(io.BytesIO(screenshot_bytes))
 
     print("🖌 Drawing filtered boxes...")
@@ -151,7 +165,6 @@ with sync_playwright() as p:
     processed_img.save(buffered, format="PNG")
     image_base64 = base64.b64encode(buffered.getvalue()).decode()
 
-    # Final payload for Gemini
     payload = {
         "instruction": INSTRUCTION,
         "action_type": ACTION_TYPE,
