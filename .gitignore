@@ -1,0 +1,10 @@
+.env
+*.json
+!package.json
+venv/
+current_step.png
+final_screenshot.png
+action_log.json
+payload.json
+processed.png
+__pycache__/

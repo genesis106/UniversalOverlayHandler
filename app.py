@@ -1,8 +1,12 @@
+"""
+Universal Overlay Handler — Element Collection & Screenshot Tool
+Collects interactive elements, draws bounding boxes, and generates payload for Gemini.
+"""
+
 from playwright.sync_api import sync_playwright
 from PIL import Image, ImageDraw, ImageFilter
 import io
 import json
-import time
 import base64
 
 # ================================
@@ -141,41 +145,42 @@ def draw_boxes(image, elements, action_type):
 # MAIN EXECUTION
 # ================================
 
-with sync_playwright() as p:
-    browser = p.chromium.launch(headless=False)
-    page = browser.new_page(device_scale_factor=1)
+if __name__ == "__main__":
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=False)
+        page = browser.new_page(device_scale_factor=1)
 
-    page.goto(TARGET_URL)
+        page.goto(TARGET_URL)
 
-    print(f"🔍 Collecting elements for action: {ACTION_TYPE}")
-    elements = collect_elements(page, ACTION_TYPE)
-    print(f"✅ Collected {len(elements)} relevant elements")
+        print(f"🔍 Collecting elements for action: {ACTION_TYPE}")
+        elements = collect_elements(page, ACTION_TYPE)
+        print(f"✅ Collected {len(elements)} relevant elements")
 
-    print("📸 Taking FULL-PAGE screenshot...")
-    screenshot_bytes = page.screenshot(full_page=True)  # NOT CHANGED
-    img = Image.open(io.BytesIO(screenshot_bytes))
+        print("📸 Taking FULL-PAGE screenshot...")
+        screenshot_bytes = page.screenshot(full_page=True)
+        img = Image.open(io.BytesIO(screenshot_bytes))
 
-    print("🖌 Drawing filtered boxes...")
-    processed_img = draw_boxes(img, elements, ACTION_TYPE)
+        print("🖌 Drawing filtered boxes...")
+        processed_img = draw_boxes(img, elements, ACTION_TYPE)
 
-    processed_img.save("processed.png")
+        processed_img.save("processed.png")
 
-    # Convert processed image to base64
-    buffered = io.BytesIO()
-    processed_img.save(buffered, format="PNG")
-    image_base64 = base64.b64encode(buffered.getvalue()).decode()
+        # Convert processed image to base64
+        buffered = io.BytesIO()
+        processed_img.save(buffered, format="PNG")
+        image_base64 = base64.b64encode(buffered.getvalue()).decode()
 
-    payload = {
-        "instruction": INSTRUCTION,
-        "action_type": ACTION_TYPE,
-        "elements": elements,
-        "image_base64": image_base64
-    }
+        payload = {
+            "instruction": INSTRUCTION,
+            "action_type": ACTION_TYPE,
+            "elements": elements,
+            "image_base64": image_base64
+        }
 
-    with open("payload.json", "w") as f:
-        json.dump(payload, f, indent=4)
+        with open("payload.json", "w") as f:
+            json.dump(payload, f, indent=4)
 
-    print("✅ processed.png saved")
-    print("✅ payload.json saved (Ready for Gemini)")
+        print("✅ processed.png saved")
+        print("✅ payload.json saved (Ready for Gemini)")
 
-    browser.close()
+        browser.close()
