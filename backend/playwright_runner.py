@@ -8,23 +8,24 @@ from PIL import Image, ImageDraw, ImageFilter
 import io
 import json
 import base64
+import sys
 
 # ================================
 # CONFIGURATION
 # ================================
 
-TARGET_URL = "http://docs.google.com/forms/d/e/1FAIpQLSfIVFC_d5RTrImPkX7kbgqhQ-lcIknT6wGhvxqX-PF-XL3gvg/viewform"
+# ================================
+# INPUT FROM FASTAPI / TERMINAL
+# ================================
 
-# OPTIONS:
-# CLICK_BUTTON
-# FILL_INPUT
-# SELECT_DROPDOWN
-# CLICK_LINK
-# SELECT_RADIO
-# CLICK_INPUT_ALL
-ACTION_TYPE = "CLICK_INPUT_ALL"
-
-INSTRUCTION = "Fill the form completely"
+if len(sys.argv) >= 4:
+    TARGET_URL = sys.argv[1]
+    ACTION_TYPE = sys.argv[2]
+    INSTRUCTION = sys.argv[3]
+else:
+    print("❌ Missing arguments")
+    print("Usage: python playwright_runner.py <url> <action_type> <instruction>")
+    sys.exit(1)
 
 # ================================
 # ELEMENT COLLECTION
@@ -112,12 +113,12 @@ def collect_elements(page, action_type):
             value = element.get_attribute("value") or ""
 
             category = detect_category(tag_name, input_type, role)
+            label = text or placeholder or aria_label or name or tag_name
 
             collected_data.append({
                 "id": index,
-                "action_type": action_type,
-                "category": category,
                 "tag": tag_name,
+                "label": label,
                 "text": text,
                 "placeholder": placeholder,
                 "name": name,
@@ -127,7 +128,7 @@ def collect_elements(page, action_type):
                 "value": value,
                 "element_id_attr": element_id_attr,
                 "class_attr": class_attr,
-                "coordinates": box
+                "box": box
             })
 
             index += 1
@@ -228,7 +229,7 @@ if __name__ == "__main__":
         print(f"✅ Collected {len(elements)} elements")
 
         print("📸 Taking FULL-PAGE screenshot...")
-        screenshot_bytes = page.screenshot(full_page=True)
+        screenshot_bytes = page.screenshot(full_page=False)
         img = Image.open(io.BytesIO(screenshot_bytes))
 
         print("🖌 Drawing boxes...")
@@ -242,18 +243,19 @@ if __name__ == "__main__":
 
         radio_groups = group_radio_buttons(elements)
 
+        
+        
         payload = {
             "instruction": INSTRUCTION,
             "action_type": ACTION_TYPE,
             "elements": elements,
-            "radio_groups": radio_groups,
-            "image_base64": image_base64
+            "screenshot": image_base64
         }
 
-        with open("payload.json", "w") as f:
-            json.dump(payload, f, indent=4)
+        print(json.dumps(payload))
 
         print("✅ processed.png saved")
         print("✅ payload.json saved (Ready for Gemini)")
 
         browser.close()
+        
