@@ -1,6 +1,6 @@
 # UI Pilot : Universal Overlay Handler
 
-An AI-powered browser automation agent that fills forms, clicks buttons, and navigates websites autonomously. It combines a **Chrome Extension** (the control panel) with a **Python backend** (Playwright + Gemini 2.0 Flash) to let you describe a task in plain English and watch the agent carry it out.
+An AI-powered browser automation agent that fills forms, clicks buttons, and navigates websites autonomously. It combines a **Chrome Extension** (the control panel) with a **Python backend** (Playwright + Gemini 2.5 Flash) to let you describe a task in plain English and watch the agent carry it out.
 
 ![Architecture](001_Architecture.jpg)
 <img src="001_screenshots.jpeg" alt="Alt text" width="400"/>
