@@ -3,8 +3,8 @@
 > Automate any web form or UI workflow using your personal data vault, powered by Gemini 2.5 Flash and Playwright.
 
 ![Architecture](001_Architecture.jpg)
-<img src="001_screenshots.jpeg" alt="Alt text" width="700"/>
-<img src="001_screenshot2.jpeg" alt="Alt text" width="700"/>
+<img src="001_screenshots.jpeg" alt="Alt text" width="500"/>
+<img src="001_screenshot2.jpeg" alt="Alt text" width="500"/>
 
 ---
 
