@@ -1,4 +1,4 @@
-# UI Pilot — Universal Overlay Handler
+# UI Pilot : Universal Overlay Handler
 
 An AI-powered browser automation agent that fills forms, clicks buttons, and navigates websites autonomously. It combines a **Chrome Extension** (the control panel) with a **Python backend** (Playwright + Gemini 2.0 Flash) to let you describe a task in plain English and watch the agent carry it out.
 
@@ -35,7 +35,7 @@ FastAPI Server (app.py / server.py)
 
 ## Features
 
-- **Natural language control** — describe what you want in plain English
+- **Natural language control** - describe what you want in plain English
 - **Annotated vision** — Gemini sees a screenshot with numbered element overlays, not just raw HTML
 - **Smart element detection** — classifies buttons, inputs, textareas, dropdowns, links, radio buttons, and checkboxes
 - **Drive storage** — a local IndexedDB vault (powered by Dexie.js) stores your personal info, documents, and images so the agent can autofill forms without re-entering data
