@@ -27,7 +27,7 @@ FastAPI Server (app.py / server.py)
 1. You type an instruction in the popup (e.g. *"Fill in the registration form with my details"*).
 2. The extension sends the instruction + your stored profile data to the local FastAPI server.
 3. `playwright_runner.py` opens a Chromium window, collects all interactive elements on the page, annotates a screenshot with numbered bounding boxes, and returns the payload.
-4. `navigator.py` feeds the screenshot and element list to **Gemini 2.0 Flash** (via Vertex AI), which returns the single best next action as JSON.
+4. `navigator.py` feeds the screenshot and element list to **Gemini 2.5 Flash** (via Vertex AI), which returns the single best next action as JSON.
 5. The action is executed (click, type, scroll, key press, etc.) and the loop repeats until the task is complete.
 6. If the agent needs information it doesn't have, it sends an `ask_user` response back to the extension, which shows a chat-style input box for you to answer. Answers can optionally be saved to Drive for future reuse.
 
