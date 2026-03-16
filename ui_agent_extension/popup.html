@@ -1,52 +1,467 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>UI Agent</title>
-    <link rel="stylesheet" href="style.css">
-</head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UI Navigator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --blue-50:  #eff6ff;
+      --blue-100: #dbeafe;
+      --blue-200: #bfdbfe;
+      --blue-400: #60a5fa;
+      --blue-500: #3b82f6;
+      --blue-600: #2563eb;
+      --blue-700: #1d4ed8;
+      --blue-900: #1e3a8a;
+      --white:    #ffffff;
+      --gray-50:  #f8fafc;
+      --gray-100: #f1f5f9;
+      --gray-200: #e2e8f0;
+      --gray-400: #94a3b8;
+      --gray-500: #64748b;
+      --gray-700: #334155;
+      --gray-900: #0f172a;
+      --green:    #10b981;
+      --red:      #ef4444;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
+      --shadow:    0 4px 16px rgba(37,99,235,.12);
+      --radius:    10px;
+    }
 
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+      background: var(--white);
+      color: var(--gray-900);
+      width: 380px;
+      min-height: 520px;
+      max-height: 640px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: linear-gradient(135deg, var(--blue-600) 0%, var(--blue-700) 100%);
+      padding: 16px 18px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .header-icon {
+      width: 34px; height: 34px;
+      background: rgba(255,255,255,.2);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    .header-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--white);
+      letter-spacing: -0.2px;
+    }
+    .header-sub {
+      font-size: 11px;
+      color: rgba(255,255,255,.7);
+      margin-top: 1px;
+    }
+    .header-actions {
+      display: flex; gap: 6px; align-items: center;
+    }
+    .drive-pill {
+      background: rgba(255,255,255,.15);
+      border: 1px solid rgba(255,255,255,.25);
+      color: var(--white);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background .15s;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .drive-pill:hover { background: rgba(255,255,255,.25); }
+    #storageInfo {
+      font-size: 10px;
+      color: rgba(255,255,255,.6);
+      font-weight: 500;
+    }
+
+    /* ── URL Detection Bar ── */
+    .url-bar {
+      background: var(--blue-50);
+      border-bottom: 1px solid var(--blue-100);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .url-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      flex-shrink: 0;
+      box-shadow: 0 0 0 3px rgba(16,185,129,.15);
+    }
+    .url-dot.idle { background: var(--gray-400); box-shadow: none; }
+    .url-text {
+      font-size: 11px;
+      color: var(--gray-500);
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .url-text b { color: var(--blue-600); font-weight: 600; }
+
+    /* ── Main Content ── */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--white);
+    }
+
+    /* ── Instruction Area ── */
+    .task-area {
+      padding: 14px 16px 0;
+      flex-shrink: 0;
+    }
+    .task-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--gray-500);
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      margin-bottom: 7px;
+    }
+    .task-input-wrap {
+      position: relative;
+    }
+    .task-input {
+      width: 100%;
+      background: var(--gray-50);
+      border: 1.5px solid var(--gray-200);
+      border-radius: var(--radius);
+      padding: 10px 42px 10px 12px;
+      font-size: 13px;
+      font-family: inherit;
+      color: var(--gray-900);
+      resize: none;
+      outline: none;
+      transition: border-color .2s;
+      min-height: 70px;
+      line-height: 1.5;
+    }
+    .task-input:focus { border-color: var(--blue-400); background: var(--white); }
+    .task-input::placeholder { color: var(--gray-400); }
+
+    /* ── URL Input ── */
+    .url-input-row {
+      padding: 8px 16px 0;
+      flex-shrink: 0;
+    }
+    .url-input {
+      width: 100%;
+      background: var(--gray-50);
+      border: 1.5px solid var(--gray-200);
+      border-radius: var(--radius);
+      padding: 8px 12px;
+      font-size: 12px;
+      font-family: inherit;
+      color: var(--gray-700);
+      outline: none;
+      transition: border-color .2s;
+    }
+    .url-input:focus { border-color: var(--blue-400); background: var(--white); }
+    .url-input::placeholder { color: var(--gray-400); }
+
+    /* ── Run Button ── */
+    .run-row {
+      padding: 10px 16px 12px;
+      flex-shrink: 0;
+    }
+    .run-btn {
+      width: 100%;
+      background: linear-gradient(135deg, var(--blue-500), var(--blue-600));
+      color: var(--white);
+      border: none;
+      border-radius: var(--radius);
+      padding: 11px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+      transition: all .2s;
+      box-shadow: 0 2px 8px rgba(37,99,235,.3);
+      letter-spacing: .1px;
+    }
+    .run-btn:hover { background: linear-gradient(135deg, var(--blue-600), var(--blue-700)); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(37,99,235,.4); }
+    .run-btn:active { transform: translateY(0); }
+    .run-btn:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+    .run-btn .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Status Bar ── */
+    .status-bar {
+      margin: 0 16px 10px;
+      padding: 8px 12px;
+      background: var(--blue-50);
+      border: 1px solid var(--blue-100);
+      border-radius: 8px;
+      font-size: 12px;
+      color: var(--blue-700);
+      font-weight: 500;
+      display: none;
+      align-items: center;
+      gap: 7px;
+      flex-shrink: 0;
+    }
+    .status-bar.visible { display: flex; }
+    .status-bar.error { background: #fef2f2; border-color: #fecaca; color: var(--red); }
+    .status-bar.success { background: #f0fdf4; border-color: #bbf7d0; color: var(--green); }
+    .status-icon { font-size: 14px; }
+
+    /* ── Chat Panel ── */
+    .chat-panel {
+      flex: 1;
+      overflow-y: auto;
+      padding: 4px 16px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      scroll-behavior: smooth;
+    }
+    .chat-panel::-webkit-scrollbar { width: 4px; }
+    .chat-panel::-webkit-scrollbar-track { background: transparent; }
+    .chat-panel::-webkit-scrollbar-thumb { background: var(--blue-200); border-radius: 4px; }
+
+    /* Chat messages */
+    .msg {
+      display: flex;
+      flex-direction: column;
+      max-width: 88%;
+    }
+    .msg.agent { align-self: flex-start; }
+    .msg.user  { align-self: flex-end; }
+    .msg-bubble {
+      padding: 9px 13px;
+      border-radius: 14px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .msg.agent .msg-bubble {
+      background: var(--blue-50);
+      border: 1px solid var(--blue-100);
+      color: var(--gray-800);
+      border-bottom-left-radius: 4px;
+    }
+    .msg.user .msg-bubble {
+      background: var(--blue-600);
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+    .msg-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--gray-400);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      padding: 0 2px;
+    }
+    .msg.user .msg-label { text-align: right; }
+    .msg.agent .msg-label { color: var(--blue-500); }
+
+    /* ── Question Input (chat-style) ── */
+    .question-box {
+      margin: 0 16px 12px;
+      border: 1.5px solid var(--blue-400);
+      border-radius: var(--radius);
+      background: var(--white);
+      box-shadow: var(--shadow);
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .question-box-header {
+      background: var(--blue-50);
+      padding: 7px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--blue-600);
+      display: flex; align-items: center; gap: 6px;
+      border-bottom: 1px solid var(--blue-100);
+    }
+    .question-input-row {
+      display: flex; gap: 0;
+    }
+    .question-input {
+      flex: 1;
+      border: none;
+      outline: none;
+      padding: 10px 12px;
+      font-size: 13px;
+      font-family: inherit;
+      background: var(--white);
+      color: var(--gray-900);
+    }
+    .question-input::placeholder { color: var(--gray-400); }
+    .question-send {
+      background: var(--blue-600);
+      color: white;
+      border: none;
+      padding: 0 14px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background .15s;
+    }
+    .question-send:hover { background: var(--blue-700); }
+    .save-row {
+      padding: 6px 12px 8px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      border-top: 1px solid var(--gray-100);
+    }
+    .save-row input[type="checkbox"] {
+      accent-color: var(--blue-600);
+      cursor: pointer;
+    }
+    .save-row label {
+      font-size: 11px;
+      color: var(--gray-500);
+      cursor: pointer;
+    }
+    .question-box.hidden { display: none; }
+
+    /* ── Divider ── */
+    .divider {
+      height: 1px;
+      background: var(--gray-100);
+      margin: 0 16px;
+      flex-shrink: 0;
+    }
+
+    /* ── Empty chat ── */
+    .chat-empty {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 8px;
+      color: var(--gray-400);
+      font-size: 12px;
+      padding: 20px;
+      text-align: center;
+    }
+    .chat-empty-icon { font-size: 32px; margin-bottom: 4px; opacity: .5; }
+  </style>
+</head>
 <body>
 
-    <h2>AI Browser Agent</h2>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-brand">
+      <div class="header-icon">🤖</div>
+      <div>
+        <div class="header-title">UI Navigator</div>
+        <div class="header-sub">AI-powered form agent</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="drive-pill" id="driveBtn">
+        🗄️ Drive
+        <span id="storageInfo">0</span>
+      </button>
+    </div>
+  </header>
 
-    <!-- URL input -->
-    <input id="url" type="text" placeholder="Enter website URL (ex: https://example.com)">
+  <!-- Active URL Bar -->
+  <div class="url-bar">
+    <div class="url-dot idle" id="urlDot"></div>
+    <div class="url-text" id="urlDisplay">Detecting current page…</div>
+  </div>
 
-    <br><br>
+  <!-- Main -->
+  <div class="main">
 
-    <!-- Instruction -->
-    <textarea id="instruction" placeholder="Enter instruction (ex: Fill this form)">
-</textarea>
-
-    <br><br>
-
-    <!-- Run button -->
-    <button id="runBtn">Run Task</button>
-
-    <br><br>
-
-    <!-- Gemini question container -->
-    <div id="userInputContainer"></div>
-
-    <br>
-
-    <!-- Status messages -->
-    <div id="status"></div>
-
-    <!-- Drive Manager Area -->
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-        <span id="storageInfo" style="font-size: 12px; color: #666;">Drive: - items</span>
-        <button id="driveBtn"
-            style="width: auto; padding: 5px 10px; margin: 0; background: #f0f0f5; color: #333; border: 1px solid #ccc;">🗄️
-            Manage Drive</button>
+    <!-- Task Instruction -->
+    <div class="task-area">
+      <div class="task-label">Task Instruction</div>
+      <div class="task-input-wrap">
+        <textarea class="task-input" id="instruction" placeholder="What should the agent do on this page? e.g. Fill in the registration form with my details"></textarea>
+      </div>
     </div>
 
-    <script src="lib/dexie.min.js"></script>
-    <script src="db.js"></script>
-    <script src="popup.js"></script>
+    <!-- URL Override -->
+    <div class="url-input-row">
+      <input class="url-input" type="text" id="url" placeholder="Override URL (optional — uses active tab by default)">
+    </div>
 
+    <!-- Run Button -->
+    <div class="run-row">
+      <button class="run-btn" id="runBtn">
+        <span>▶</span> Run Agent
+      </button>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar" id="statusBar">
+      <span class="status-icon">⚡</span>
+      <span id="statusText">Running…</span>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Chat Panel -->
+    <div class="chat-panel" id="chatPanel">
+      <div class="chat-empty" id="chatEmpty">
+        <div class="chat-empty-icon">💬</div>
+        <div>Agent conversation will appear here</div>
+        <div style="font-size:11px; color:var(--gray-300)">Questions & answers in real-time</div>
+      </div>
+    </div>
+
+    <!-- Question Input Box -->
+    <div class="question-box hidden" id="questionBox">
+      <div class="question-box-header">
+        <span>🤖</span> Agent needs info
+      </div>
+      <div class="question-input-row">
+        <input class="question-input" type="text" id="userAnswer" placeholder="Type your answer…">
+        <button class="question-send" id="submitAnswer" title="Send">➤</button>
+      </div>
+      <div class="save-row">
+        <input type="checkbox" id="saveToDrive" checked>
+        <label for="saveToDrive">Save to Drive for future use</label>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="lib/dexie.min.js"></script>
+  <script src="db.js"></script>
+  <script src="popup.js"></script>
 </body>
-
 </html>

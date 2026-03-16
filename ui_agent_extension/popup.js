@@ -1,129 +1,239 @@
-// Initialize Drive UI
+// =============================================
+// UI Navigator Popup — Logic
+// =============================================
+
+let currentSessionId = null;
+let lastQuestion = null;
+
+// ── Init Drive info ──
+async function initDrive() {
+  const summary = await getStorageSummary();
+  document.getElementById("storageInfo").textContent = summary.total;
+}
+initDrive();
+
+// ── Open Drive Tab ──
 document.getElementById("driveBtn").addEventListener("click", () => {
   chrome.tabs.create({ url: chrome.runtime.getURL("drive.html") });
 });
 
-async function initDrive() {
-  const summary = await getStorageSummary();
-  document.getElementById("storageInfo").innerText = `Drive: ${summary.total} items`;
-}
-initDrive();
+// ── Detect active tab URL ──
+chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+  if (tabs && tabs[0]) {
+    const url = tabs[0].url;
+    const urlInput = document.getElementById("url");
+    const urlDisplay = document.getElementById("urlDisplay");
+    const urlDot = document.getElementById("urlDot");
 
-// Run agent when button clicked
-document.getElementById("runBtn").addEventListener("click", runAgent)
+    // Show detected URL
+    try {
+      const parsed = new URL(url);
+      urlDisplay.innerHTML = `<b>${parsed.hostname}</b>${parsed.pathname !== "/" ? parsed.pathname : ""}`;
+    } catch {
+      urlDisplay.textContent = url;
+    }
 
-let currentSessionId = null
-let lastQuestion = null
+    urlDot.classList.remove("idle");
+
+    // Auto-fill URL field if empty
+    if (!urlInput.value) {
+      urlInput.value = url;
+    }
+  }
+});
+
+// ── Run Agent ──
+document.getElementById("runBtn").addEventListener("click", runAgent);
 
 async function runAgent() {
+  const instruction = document.getElementById("instruction").value.trim();
+  const urlField = document.getElementById("url").value.trim();
 
-  const instruction = document.getElementById("instruction").value
-  const url = document.getElementById("url").value
-
-  if (!currentSessionId) {
-    currentSessionId = Date.now().toString()
+  if (!instruction) {
+    setStatus("Please enter a task instruction", "error");
+    return;
   }
 
-  const status = document.getElementById("status")
-  status.innerText = "Running AI agent..."
+  // Fallback: get active tab URL if not set
+  let url = urlField;
+  if (!url) {
+    url = await getActiveTabUrl();
+  }
 
-  // Fetch local profile data to send with request
-  const profileData = await getProfileCategorized()
+  if (!currentSessionId) {
+    currentSessionId = Date.now().toString();
+  }
 
-  // Fetch files so the agent knows what exists
-  const documents = await getAllDocuments()
-  const images = await getAllImages()
+  setRunning(true);
+  setStatus("Starting agent…");
 
-  // Make a combined structure
+  const profileData = await getProfileCategorized();
+  const documents = await getAllDocuments();
+  const images = await getAllImages();
+
   const userDataPayload = {
     profile: profileData,
     documents: documents.map(d => ({ name: d.name, type: d.type, mimeType: d.mimeType, content: d.content })),
     images: images.map(i => ({ name: i.name, mimeType: i.mimeType, content: i.content }))
-  }
+  };
 
-  const res = await fetch("http://127.0.0.1:8000/run-agent", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      instruction: instruction,
-      url: url,
-      action_type: "CLICK_INPUT_ALL",
-      session_id: currentSessionId,
-      user_data: userDataPayload
-    })
-  })
+  try {
+    const res = await fetch("http://127.0.0.1:8000/run-agent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        instruction,
+        url,
+        action_type: "CLICK_INPUT_ALL",
+        session_id: currentSessionId,
+        user_data: userDataPayload
+      })
+    });
 
-  const data = await res.json()
+    const data = await res.json();
 
-  // If Gemini needs input
-  if (data.status === "ask_user") {
-    lastQuestion = data.question;
-    showUserQuestion(data.question)
-  }
-  else {
-    status.innerText = "Task completed"
-    currentSessionId = null // Reset for next run
+    if (data.status === "ask_user") {
+      lastQuestion = data.question;
+      setStatus("Agent is asking for input…");
+      addAgentMessage(data.question);
+      showQuestionBox();
+      setRunning(false);
+    } else if (data.status === "done") {
+      setStatus("✅ Task completed!" + (data.summary ? " " + data.summary : ""), "success");
+      addAgentMessage("✅ Task completed!" + (data.summary ? "\n" + data.summary : ""));
+      currentSessionId = null;
+      setRunning(false);
+    } else {
+      setStatus("Unexpected response from agent", "error");
+      setRunning(false);
+    }
+  } catch (err) {
+    setStatus("Cannot connect to agent server (127.0.0.1:8000)", "error");
+    setRunning(false);
   }
 }
 
-
-function showUserQuestion(question) {
-
-  const container = document.getElementById("userInputContainer")
-
-  container.innerHTML = `
-      <p style="font-weight:bold">${question}</p>
-      <input id="userAnswer" placeholder="Type answer" style="width:100%; margin:5px 0; padding:5px;"/>
-      <div style="margin:5px 0; display:flex; align-items:center; gap:5px; font-size:13px;">
-         <input type="checkbox" id="saveToDrive" checked>
-         <label for="saveToDrive">Save to Drive for next time</label>
-      </div>
-      <button id="submitAnswer">Submit</button>
-  `
-
-  document
-    .getElementById("submitAnswer")
-    .addEventListener("click", sendAnswer)
-}
-
+// ── Submit Answer ──
+document.getElementById("submitAnswer").addEventListener("click", sendAnswer);
+document.getElementById("userAnswer").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") sendAnswer();
+});
 
 async function sendAnswer() {
+  const answer = document.getElementById("userAnswer").value.trim();
+  if (!answer) return;
 
-  const answer = document.getElementById("userAnswer").value
-  const saveToDrive = document.getElementById("saveToDrive").checked
+  const saveToDrive = document.getElementById("saveToDrive").checked;
 
-  const status = document.getElementById("status")
-  status.innerText = "Sending answer..."
+  // Show user's answer as chat bubble
+  addUserMessage(answer);
+  hideQuestionBox();
 
-  // Automatically save to Drive if checked
+  // Save to drive if requested
   if (saveToDrive && lastQuestion && answer) {
-    // Very basic natural language extraction attempt to get a reasonable field name
-    // e.g. "What is your mother's name?" -> "mother's name"
-    let fieldName = lastQuestion.replace(/what is|please enter|enter your|your|the/gi, "").replace(/[?.,]/g, "").trim();
-    if (!fieldName || fieldName.length > 30) fieldName = "Saved Field " + Date.now().toString().slice(-4);
-
+    let fieldName = lastQuestion
+      .replace(/what is|please enter|enter your|your|the/gi, "")
+      .replace(/[?.,]/g, "")
+      .trim();
+    if (!fieldName || fieldName.length > 50) {
+      fieldName = "Saved Field " + Date.now().toString().slice(-4);
+    }
     await addProfileEntry(fieldName, answer, "other");
-    initDrive(); // Update count
+    initDrive();
   }
 
-  await fetch("http://127.0.0.1:8000/user-response", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      answer: answer,
-      session_id: currentSessionId
-    })
-  })
+  setStatus("Sending answer to agent…");
+  setRunning(true);
 
-  status.innerText = "Answer submitted. Agent continuing..."
+  try {
+    await fetch("http://127.0.0.1:8000/user-response", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ answer, session_id: currentSessionId })
+    });
 
-  // Clear question container
-  document.getElementById("userInputContainer").innerHTML = "";
+    document.getElementById("userAnswer").value = "";
+    setStatus("Agent continuing…");
+    runAgent();
+  } catch (err) {
+    setStatus("Failed to send answer", "error");
+    setRunning(false);
+  }
+}
 
-  // Continue the agent
-  runAgent()
+// ── UI Helpers ──
+
+function setRunning(running) {
+  const btn = document.getElementById("runBtn");
+  btn.disabled = running;
+  btn.innerHTML = running
+    ? `<span class="spinner"></span> Running…`
+    : `<span>▶</span> Run Agent`;
+}
+
+function setStatus(msg, type = "info") {
+  const bar = document.getElementById("statusBar");
+  const text = document.getElementById("statusText");
+  bar.className = "status-bar visible";
+  if (type === "error") bar.classList.add("error");
+  if (type === "success") bar.classList.add("success");
+
+  const icons = { info: "⚡", error: "⚠️", success: "✅" };
+  bar.querySelector(".status-icon").textContent = icons[type] || "⚡";
+  text.textContent = msg;
+}
+
+function addAgentMessage(text) {
+  removeChatEmpty();
+  const panel = document.getElementById("chatPanel");
+  const msg = document.createElement("div");
+  msg.className = "msg agent";
+  msg.innerHTML = `
+    <div class="msg-label">🤖 Agent</div>
+    <div class="msg-bubble">${escapeHtml(text)}</div>
+  `;
+  panel.appendChild(msg);
+  panel.scrollTop = panel.scrollHeight;
+}
+
+function addUserMessage(text) {
+  removeChatEmpty();
+  const panel = document.getElementById("chatPanel");
+  const msg = document.createElement("div");
+  msg.className = "msg user";
+  msg.innerHTML = `
+    <div class="msg-label">You</div>
+    <div class="msg-bubble">${escapeHtml(text)}</div>
+  `;
+  panel.appendChild(msg);
+  panel.scrollTop = panel.scrollHeight;
+}
+
+function removeChatEmpty() {
+  const empty = document.getElementById("chatEmpty");
+  if (empty) empty.remove();
+}
+
+function showQuestionBox() {
+  const box = document.getElementById("questionBox");
+  box.classList.remove("hidden");
+  document.getElementById("userAnswer").focus();
+}
+
+function hideQuestionBox() {
+  document.getElementById("questionBox").classList.add("hidden");
+}
+
+function escapeHtml(str) {
+  const d = document.createElement("div");
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+async function getActiveTabUrl() {
+  return new Promise((resolve) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      resolve(tabs && tabs[0] ? tabs[0].url : "");
+    });
+  });
 }
