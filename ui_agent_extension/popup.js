@@ -67,7 +67,7 @@ async function runAgent() {
   setRunning(true);
   setStatus("Starting agent…");
 
-  const profileData = await getProfileCategorized();
+  const profileData = await getAllProfile();
   const documents = await getAllDocuments();
   const images = await getAllImages();
 

@@ -1,12 +1,19 @@
+# Environment variables
 .env
-*.json
-!package.json
+backend/.env
 venv/
-current_step.png
-final_screenshot.png
-action_log.json
-payload.json
-processed.png
+
+# Google Cloud Service Account Keys
+*.json
+!ui_agent_extension/manifest.json
+
+# Python caches
 __pycache__/
-chrome_profile/
-*.log
+*.pyc
+
+# IDEs
+.idea/
+.vscode/
+
+# Playwright Profiles
+backend/chrome_profile/

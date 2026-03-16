@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "UI Pilot Agent",
+  "version": "1.0",
+  "description": "Send instruction to Playwright AI agent",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "UI Agent"
+  },
+  "permissions": [
+    "activeTab",
+    "tabs"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:8000/*",
+    "http://localhost:8000/*"
+  ]
+}

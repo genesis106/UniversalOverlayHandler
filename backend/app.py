@@ -41,7 +41,7 @@ sessions = {}
 load_dotenv()
 GOOGLE_CLOUD_PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT")
 GOOGLE_CLOUD_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
-MODEL_ID = "gemini-2.0-flash"
+MODEL_ID = "gemini-2.5-flash"
 MAX_STEPS = 30
 
 # -----------------------------
@@ -684,6 +684,15 @@ async def run_agent(task: Task):
     user_data = task.user_data
     history = []
     if session_id not in sessions:
+        # Clean up any abandoned sessions to free up the Chrome profile lock
+        for old_session_id in list(sessions.keys()):
+            try:
+                await sessions[old_session_id]["browser"].close()
+                await sessions[old_session_id]["p"].stop()
+            except Exception:
+                pass
+            del sessions[old_session_id]
+
         p = await async_playwright().start()
         
         import glob
