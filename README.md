@@ -3,8 +3,8 @@
 > Automate any web form or UI workflow using your personal data vault, powered by Gemini 2.5 Flash and Playwright.
 
 ![Architecture](001_Architecture.jpg)
-![Screenshot](001_Screenshots.jpeg)
-![Screenshot](001_Screenshot2.jpeg)
+![Screenshot](001_screenshots.jpeg)
+![Screenshot](001_screenshot2.jpeg)
 
 ---
 
