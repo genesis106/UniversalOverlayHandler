@@ -3,7 +3,7 @@ from pydantic import BaseModel
 import subprocess
 import json
 from fastapi.middleware.cors import CORSMiddleware
-from playwright.sync_api import sync_playwright
+from playwright.async_api import async_playwright
 from PIL import Image, ImageDraw, ImageFilter
 import io
 import base64
@@ -20,7 +20,7 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -52,6 +52,7 @@ class Task(BaseModel):
     url: str
     action_type: str
     session_id: str = "default"
+    user_data: dict = {}
 
 
 class UserResponse(BaseModel):
@@ -171,6 +172,276 @@ def collect_elements(page, action_type):
 
 
 # -----------------------------
+# Async Element Collection
+# -----------------------------
+async def collect_elements_async(page, action_type):
+    collected_data = []
+    index = 1
+
+    await page.wait_for_load_state("load")
+    await page.wait_for_timeout(2000)
+
+    if action_type == "CLICK_BUTTON":
+        selector = "button, input[type='submit'], input[type='button']"
+
+    elif action_type == "FILL_INPUT":
+        selector = "input[type='text'], input[type='search'], textarea"
+
+    elif action_type == "SELECT_DROPDOWN":
+        selector = "select, [role='combobox'], .MuiSelect-root"
+
+    elif action_type == "CLICK_LINK":
+        selector = "a"
+
+    elif action_type == "SELECT_RADIO":
+        selector = "input[type='radio'], [role='radio']"
+
+    elif action_type == "CLICK_INPUT_ALL":
+        selector = """
+            button,
+            a,
+            input,
+            textarea,
+            select,
+            [role='button'],
+            [role='radio'],
+            [role='checkbox'],
+            [role='combobox']
+        """
+    else:
+        selector = ""
+
+    elements = await page.query_selector_all(selector)
+
+    for element in elements:
+        try:
+            if not await element.is_visible():
+                continue
+
+            box = await element.bounding_box()
+            if not box:
+                continue
+
+            if box["width"] < 5 or box["height"] < 5:
+                continue
+
+            tag_name = await element.evaluate("el => el.tagName.toLowerCase()")
+            text = (await element.evaluate("el => el.innerText || el.textContent || ''")).strip()
+            
+            # For inputs, aggressively try to find an associated label or surrounding text (crucial for Google Forms)
+            if tag_name in ['input', 'textarea', 'select'] and not text:
+                text = (await element.evaluate("""el => {
+                    if (el.labels && el.labels.length > 0) return el.labels[0].innerText;
+                    let id = el.getAttribute('id');
+                    if (id) {
+                        let label = document.querySelector('label[for="' + id + '"]');
+                        if (label) return label.innerText;
+                    }
+                    // Google forms specific: look up the tree for the question title container
+                    let container = el.closest('[role="listitem"]');
+                    if (container) {
+                        let title = container.querySelector('[role="heading"]');
+                        if (title) return title.innerText;
+                    }
+                    return '';
+                }""")).strip()
+                
+            placeholder = await element.get_attribute("placeholder") or ""
+            name = await element.get_attribute("name") or ""
+            input_type = await element.get_attribute("type") or ""
+            aria_label = await element.get_attribute("aria-label") or ""
+            role = await element.get_attribute("role") or ""
+            element_id_attr = await element.get_attribute("id") or ""
+            class_attr = await element.get_attribute("class") or ""
+            value = await element.get_attribute("value") or ""
+
+            category = detect_category(tag_name, input_type, role)
+            label = aria_label or text or placeholder or name or tag_name
+
+            collected_data.append({
+                "id": index,
+                "tag": tag_name,
+                "label": label,
+                "text": text,
+                "placeholder": placeholder,
+                "name": name,
+                "input_type": input_type,
+                "aria_label": aria_label,
+                "role": role,
+                "value": value,
+                "element_id_attr": element_id_attr,
+                "class_attr": class_attr,
+                "box": box
+            })
+
+            index += 1
+
+        except Exception:
+            continue
+
+    return collected_data
+
+
+# -----------------------------
+# Async Execute Action
+# -----------------------------
+async def execute_action_async(page, action, elements):
+    act = action.get("action")
+
+    if act == "click":
+        el = next((e for e in elements if e["id"] == action["element_id"]), None)
+
+        if not el:
+            return False
+
+        box = el["box"]
+
+        await page.mouse.click(
+            box["x"] + box["width"]/2,
+            box["y"] + box["height"]/2
+        )
+
+        await page.wait_for_timeout(1500)
+        return True
+
+    elif act == "type":
+        el = next((e for e in elements if e["id"] == action["element_id"]), None)
+
+        if not el:
+            return False
+
+        box = el["box"]
+
+        await page.mouse.click(
+            box["x"] + box["width"]/2,
+            box["y"] + box["height"]/2
+        )
+
+        await page.keyboard.type(action.get("text",""))
+
+        return True
+
+    elif act == "clear_and_type":
+        el = next((e for e in elements if e["id"] == action["element_id"]), None)
+
+        if not el:
+            return False
+
+        box = el["box"]
+
+        await page.mouse.click(
+            box["x"] + box["width"]/2,
+            box["y"] + box["height"]/2
+        )
+
+        await page.keyboard.press("Control+A")
+        await page.keyboard.press("Backspace")
+        await page.keyboard.type(action.get("text",""))
+
+        return True
+
+    elif act == "upload_file":
+        el = next((e for e in elements if e["id"] == action["element_id"]), None)
+
+        if not el:
+            return False
+            
+        filename = action.get("filename")
+        if not filename:
+             return False
+             
+        # We need the base64 content from user_data
+        user_data = page.context.user_data_cache if hasattr(page.context, 'user_data_cache') else {}
+        doc = None
+        
+        # Search in documents first
+        if "documents" in user_data:
+            doc = next((d for d in user_data["documents"] if d["name"] == filename), None)
+            
+        # If not found, search in images
+        if not doc and "images" in user_data:
+            doc = next((i for i in user_data["images"] if i["name"] == filename), None)
+            
+        if not doc:
+             print(f"File {filename} not found in USER_DATA (checked documents and images)")
+             return False
+             
+        import base64
+        file_buffer = base64.b64decode(doc["content"])
+        
+        file_payload = {
+            "name": doc["name"],
+            "mimeType": doc["mimeType"],
+            "buffer": file_buffer
+        }
+        
+        # 1. Click the element first (which is the "Add file" button) to open the iframe
+        box = el["box"]
+        await page.mouse.click(
+            box["x"] + box["width"]/2,
+            box["y"] + box["height"]/2
+        )
+        
+        # 2. Wait for the iframe to pop up and settle
+        await page.wait_for_timeout(2000)
+        
+        # 3. Google Forms opens a cross-origin Google Drive iframe.
+        #    We must scan all frames for an input[type='file'].
+        print(f"File upload requested for {filename}, injecting into iframe picker...")
+        uploaded = False
+        
+        for frame in page.frames:
+            try:
+                # This could fail if the frame is completely isolated, but often Chrome extensions
+                # or Playwright can pierce it if --disable-web-security isn't needed or if it's accessible.
+                inputs = await frame.locator("input[type='file']").count()
+                if inputs > 0:
+                    await frame.locator("input[type='file']").first.set_input_files([file_payload])
+                    uploaded = True
+                    print(f"Successfully injected file {filename} into an iframe.")
+                    break
+            except Exception as e:
+                continue
+                
+        if not uploaded:
+            # Fallback for standard forms that just hide the input on the main page
+            try:
+                await page.locator("input[type='file']").first.set_input_files([file_payload])
+                print(f"Successfully injected file {filename} into main page.")
+            except Exception as e:
+                print("Failed to upload file to any frame or main page:", e)
+                return False
+
+        await page.wait_for_timeout(2000)
+        return True
+
+    elif act == "scroll":
+        delta = 500 if action.get("direction") == "down" else -500
+        await page.mouse.wheel(0, delta)
+
+        return True
+
+    elif act == "key":
+        await page.keyboard.press(action.get("key","Enter"))
+
+        return True
+
+    elif act == "wait":
+        await page.wait_for_timeout(int(action.get("seconds",2)*1000))
+
+        return True
+
+    elif act == "go_back":
+        await page.go_back()
+        return True
+
+    elif act in ["ask_user","done"]:
+        return True
+
+    return False
+
+
+# -----------------------------
 # Draw Boxes
 # -----------------------------
 def get_color(category):
@@ -268,6 +539,7 @@ Available actions:
 {"action": "click", "element_id": 5}
 {"action": "type", "element_id": 3, "text": "shoes"}
 {"action": "clear_and_type", "element_id": 3, "text": "shoes"}
+{"action": "upload_file", "element_id": 7, "filename": "resume.pdf"}
 {"action": "scroll", "direction": "down"}
 {"action": "scroll", "direction": "up"}
 {"action": "key", "key": "Enter"}
@@ -277,20 +549,22 @@ Available actions:
 {"action": "go_back"}
 
 Rules:
-- Do NOT fill personal information like name, email, phone, address with made-up data
-- Always use ask_user for any input fields that require personal details
-- Use ask_user if you need information
-- Do NOT stop early
-- If popup appears close it
-- If element not visible, scroll to make it visible
-- Scroll if needed to find more elements
+1. You will be provided with a LOCAL DRIVE (USER_DATA) containing the user's personal information, documents, and images.
+2. ALWAYS check USER_DATA first! Use SEMANTIC MATCHING to map form fields to USER_DATA keys. If the USER_DATA key has typos or slight variations (e.g., "Far's Name" = "Father's Name", "Mother Name" = "Mother's Name"), YOU MUST STILL USE THAT DATA directly in a `type` or `upload_file` action!
+3. STRICT ANTI-HALLUCINATION RULE: If the needed data is COMPLETELY MISSING from USER_DATA, you MUST use `ask_user` to request it. 
+4. NEVER GUESS or make up ANY personal information or fake file names. If a semantic match is not available, you MUST output `ask_user`.
+5. Be specific about the field name in your `ask_user` question so the system can save it to the DB (e.g. "What is your Father's Name?").
+6. STRICT DONE RULE: Do NOT use the `done` action early. Keep filling out the form until there is a submit button, click the submit button, wait for the page to load, and ONLY call `done` when you see a clear form submission confirmation or success message.
+7. If popup appears, close it.
+8. If element not visible, scroll to make it visible.
+9. Scroll if needed to find more elements.
 """
 
 
 # -----------------------------
 # Ask Gemini
 # -----------------------------
-def ask_gemini(client, screenshot_b64, elements, goal, history, user_input=None):
+def ask_gemini(client, screenshot_b64, elements, goal, history, user_input=None, user_data=None):
     el_text = element_summary(elements)
 
     hist_text = ""
@@ -303,15 +577,47 @@ def ask_gemini(client, screenshot_b64, elements, goal, history, user_input=None)
     user_info = ""
     if user_input:
         user_info = f"\nUSER PROVIDED INFO: {user_input}\n"
+        
+    drive_info = ""
+    if user_data and isinstance(user_data, dict):
+        drive_info = "\n--- LOCAL DRIVE (USER_DATA) ---\n"
+        
+        # Format profile data simply
+        if "profile" in user_data and isinstance(user_data["profile"], list):
+            drive_info += "Profile Information:\n"
+            for item in user_data["profile"]:
+                if "key" in item and "value" in item:
+                    drive_info += f"- {item['key']}: {item['value']}\n"
+                    
+        # Format documents
+        if "documents" in user_data and isinstance(user_data["documents"], list):
+            drive_info += "\nAvailable Documents (use exact filename in upload_file action):\n"
+            for item in user_data["documents"]:
+                if "name" in item:
+                    drive_info += f"- {item['name']}\n"
+                    
+        # Format images
+        if "images" in user_data and isinstance(user_data["images"], list):
+            drive_info += "\nAvailable Images:\n"
+            for item in user_data["images"]:
+                if "name" in item:
+                    drive_info += f"- {item['name']}\n"
+                    
+        drive_info += "-------------------------------\n"
 
     prompt = f"""
 USER GOAL: {goal}
+
+{drive_info}
 
 VISIBLE ELEMENTS:
 {el_text}
 
 {user_info}
 {hist_text}
+
+CRITICAL: Before typing ANY personal data, verify it exists in LOCAL DRIVE or USER PROVIDED INFO. If it does not exist, you MUST return {{"action": "ask_user"}}.
+CRITICAL: Do not return "done" unless the form has been successfully submitted and a confirmation page is visible.
 
 What is the SINGLE next action?
 Return ONLY JSON.
@@ -360,109 +666,54 @@ Return ONLY JSON.
 
 
 # -----------------------------
-# Execute Action
+# Execute Action (Sync - Unused)
 # -----------------------------
 def execute_action(page, action, elements):
-    act = action.get("action")
-
-    if act == "click":
-        el = next((e for e in elements if e["id"] == action["element_id"]), None)
-
-        if not el:
-            return False
-
-        box = el["box"]
-
-        page.mouse.click(
-            box["x"] + box["width"]/2,
-            box["y"] + box["height"]/2
-        )
-
-        page.wait_for_timeout(1500)
-        return True
-
-    elif act == "type":
-        el = next((e for e in elements if e["id"] == action["element_id"]), None)
-
-        if not el:
-            return False
-
-        box = el["box"]
-
-        page.mouse.click(
-            box["x"] + box["width"]/2,
-            box["y"] + box["height"]/2
-        )
-
-        page.keyboard.type(action.get("text",""), delay=40)
-
-        return True
-
-    elif act == "clear_and_type":
-        el = next((e for e in elements if e["id"] == action["element_id"]), None)
-
-        if not el:
-            return False
-
-        box = el["box"]
-
-        page.mouse.click(
-            box["x"] + box["width"]/2,
-            box["y"] + box["height"]/2
-        )
-
-        page.keyboard.press("Control+A")
-        page.keyboard.type(action.get("text",""), delay=40)
-
-        return True
-
-    elif act == "scroll":
-        delta = 500 if action.get("direction") == "down" else -500
-        page.mouse.wheel(0, delta)
-
-        return True
-
-    elif act == "key":
-        page.keyboard.press(action.get("key","Enter"))
-
-        return True
-
-    elif act == "wait":
-        page.wait_for_timeout(int(action.get("seconds",2)*1000))
-
-        return True
-
-    elif act == "go_back":
-        page.go_back()
-        return True
-
-    elif act in ["ask_user","done"]:
-        return True
-
-    return False
+    # This function is not used but kept for reference
+    pass
 
 
 # -----------------------------
 # Start Playwright Agent
 # -----------------------------
 @app.post("/run-agent")
-def run_agent(task: Task):
+async def run_agent(task: Task):
     session_id = task.session_id
     action_type = task.action_type
     goal = task.instruction
+    user_data = task.user_data
     history = []
     if session_id not in sessions:
-        p = sync_playwright().start()
-        browser = p.chromium.launch(headless=False)
-        page = browser.new_page()
-        page.goto(task.url)
+        p = await async_playwright().start()
+        
+        import glob
+        user_data_dir = os.path.join(os.getcwd(), "chrome_profile")
+        for lock_file in glob.glob(os.path.join(user_data_dir, "Singleton*")):
+            try:
+                os.remove(lock_file)
+            except Exception:
+                pass
+                
+        browser = await p.chromium.launch_persistent_context(
+            user_data_dir=user_data_dir,
+            headless=False,
+            channel="chrome",
+            args=["--disable-blink-features=AutomationControlled"]
+        )
+        
+        # Store user data on the context so execute_action can access it for files
+        browser.user_data_cache = user_data
+        
+        page = browser.pages[0] if browser.pages else await browser.new_page()
+        await page.goto(task.url)
         sessions[session_id] = {
             "p": p,
             "browser": browser,
             "page": page,
             "history": [],
             "goal": task.instruction,
-            "action_type": task.action_type
+            "action_type": task.action_type,
+            "user_data": user_data
         }
     else:
         page = sessions[session_id]["page"]
@@ -475,28 +726,36 @@ def run_agent(task: Task):
         return {"status": "error", "message": "Gemini client not initialized"}
 
     for step in range(MAX_STEPS):
-        elements = collect_elements(page, action_type)
+        elements = await collect_elements_async(page, action_type)
         if len(elements) == 0:
             # Scroll down to find more elements
-            page.mouse.wheel(0, 500)
-            page.wait_for_timeout(1000)
-            elements = collect_elements(page, action_type)
-        screenshot_bytes = page.screenshot(full_page=False)
+            await page.mouse.wheel(0, 500)
+            await page.wait_for_timeout(1000)
+            elements = await collect_elements_async(page, action_type)
+        screenshot_bytes = await page.screenshot(full_page=False)
         img = Image.open(io.BytesIO(screenshot_bytes))
         processed_img = draw_boxes(img, elements)
         buffered = io.BytesIO()
         processed_img.save(buffered, format="PNG")
         screenshot_b64 = base64.b64encode(buffered.getvalue()).decode()
 
-        action = ask_gemini(client, screenshot_b64, elements, goal, history, sessions[session_id].get("user_input"))
+        action = ask_gemini(
+            client, 
+            screenshot_b64, 
+            elements, 
+            goal, 
+            history, 
+            sessions[session_id].get("user_input"),
+            sessions[session_id].get("user_data")
+        )
         if "user_input" in sessions[session_id]:
             del sessions[session_id]["user_input"]
 
         if action.get("action") == "done":
             history.append(action)
             # Clean up session
-            sessions[session_id]["browser"].close()
-            sessions[session_id]["p"].stop()
+            await sessions[session_id]["browser"].close()
+            await sessions[session_id]["p"].stop()
             del sessions[session_id]
             return {"status": "done", "summary": action.get("summary")}
 
@@ -505,11 +764,11 @@ def run_agent(task: Task):
             sessions[session_id]["history"] = history
             return {"status": "ask_user", "question": action.get("question")}
 
-        execute_action(page, action, elements)
+        await execute_action_async(page, action, elements)
         history.append(action)
 
     # Clean up if max steps
-    sessions[session_id]["browser"].close()
+    await sessions[session_id]["browser"].close()
     sessions[session_id]["p"].stop()
     del sessions[session_id]
     return {"status": "done", "summary": "Max steps reached"}

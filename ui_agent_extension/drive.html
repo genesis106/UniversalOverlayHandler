@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Drive Manager — UI Navigator Agent</title>
+    <link rel="stylesheet" href="drive.css">
+</head>
+
+<body>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <span class="logo">🗄️</span>
+            <h1>Drive Manager</h1>
+        </div>
+        <div class="header-right">
+            <span id="storageCount" class="badge">0 items</span>
+            <button id="clearAllBtn" class="btn-danger-sm" title="Clear all data">🗑️ Clear All</button>
+        </div>
+    </header>
+
+    <!-- Tabs -->
+    <nav class="tabs">
+        <button class="tab active" data-tab="profile">👤 Personal Info</button>
+        <button class="tab" data-tab="documents">📄 Documents</button>
+        <button class="tab" data-tab="images">🖼️ Images</button>
+    </nav>
+
+    <!-- ================== PROFILE TAB ================== -->
+    <section id="profileTab" class="tab-content active">
+
+        <!-- Category filter -->
+        <div class="filter-bar">
+            <select id="categoryFilter">
+                <option value="all">All Categories</option>
+                <option value="personal">👤 Personal</option>
+                <option value="contact">📞 Contact</option>
+                <option value="education">🎓 Education</option>
+                <option value="work">💼 Work</option>
+                <option value="financial">💰 Financial</option>
+                <option value="medical">🏥 Medical</option>
+                <option value="social">🌐 Social</option>
+                <option value="other">📌 Other</option>
+            </select>
+            <input id="profileSearch" type="text" placeholder="🔍 Search fields...">
+        </div>
+
+        <!-- Add new field -->
+        <div class="add-form">
+            <h3>Add Field</h3>
+            <div class="form-row">
+                <select id="addCategory">
+                    <option value="personal">👤 Personal</option>
+                    <option value="contact">📞 Contact</option>
+                    <option value="education">🎓 Education</option>
+                    <option value="work">💼 Work</option>
+                    <option value="financial">💰 Financial</option>
+                    <option value="medical">🏥 Medical</option>
+                    <option value="social">🌐 Social</option>
+                    <option value="other">📌 Other</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <input id="addKey" type="text" placeholder="Field name (e.g. Full Name)" list="fieldSuggestions">
+                <datalist id="fieldSuggestions"></datalist>
+            </div>
+            <div class="form-row">
+                <input id="addValue" type="text" placeholder="Value (e.g. John Doe)">
+            </div>
+            <button id="addProfileBtn" class="btn-primary">+ Add to Drive</button>
+        </div>
+
+        <!-- Profile list -->
+        <div id="profileList" class="item-list"></div>
+
+    </section>
+
+    <!-- ================== DOCUMENTS TAB ================== -->
+    <section id="documentsTab" class="tab-content">
+
+        <div class="upload-area" id="docUploadArea">
+            <p>📄 Drop documents here or click to upload</p>
+            <p class="hint">PDF, DOC, DOCX, TXT — Max 10MB each</p>
+            <input type="file" id="docFileInput" accept=".pdf,.doc,.docx,.txt" multiple hidden>
+        </div>
+
+        <div class="form-row">
+            <select id="docType">
+                <option value="resume">📝 Resume/CV</option>
+                <option value="certificate">🎖️ Certificate</option>
+                <option value="id_card">🪪 ID Card</option>
+                <option value="transcript">📜 Transcript</option>
+                <option value="other">📌 Other</option>
+            </select>
+        </div>
+
+        <div id="documentsList" class="item-list"></div>
+
+    </section>
+
+    <!-- ================== IMAGES TAB ================== -->
+    <section id="imagesTab" class="tab-content">
+
+        <div class="upload-area" id="imgUploadArea">
+            <p>🖼️ Drop images here or click to upload</p>
+            <p class="hint">PNG, JPG, JPEG, WEBP — Max 5MB each</p>
+            <input type="file" id="imgFileInput" accept="image/*" multiple hidden>
+        </div>
+
+        <div id="imagesList" class="item-grid"></div>
+
+    </section>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Edit Field</h3>
+            <input id="editKey" type="text" placeholder="Field name" disabled>
+            <input id="editValue" type="text" placeholder="Value">
+            <select id="editCategory">
+                <option value="personal">👤 Personal</option>
+                <option value="contact">📞 Contact</option>
+                <option value="education">🎓 Education</option>
+                <option value="work">💼 Work</option>
+                <option value="financial">💰 Financial</option>
+                <option value="medical">🏥 Medical</option>
+                <option value="social">🌐 Social</option>
+                <option value="other">📌 Other</option>
+            </select>
+            <div class="modal-actions">
+                <button id="editSaveBtn" class="btn-primary">Save</button>
+                <button id="editCancelBtn" class="btn-secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="lib/dexie.min.js"></script>
+    <script src="db.js"></script>
+    <script src="drive.js"></script>
+</body>
+
+</html>

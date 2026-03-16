@@ -8,3 +8,5 @@ action_log.json
 payload.json
 processed.png
 __pycache__/
+chrome_profile/
+*.log

@@ -2,46 +2,51 @@
 <html>
 
 <head>
-<meta charset="UTF-8">
-<title>UI Agent</title>
-<link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <title>UI Agent</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-<h2>AI Browser Agent</h2>
+    <h2>AI Browser Agent</h2>
 
-<!-- URL input -->
-<input 
-id="url" 
-type="text"
-placeholder="Enter website URL (ex: https://example.com)"
->
+    <!-- URL input -->
+    <input id="url" type="text" placeholder="Enter website URL (ex: https://example.com)">
 
-<br><br>
+    <br><br>
 
-<!-- Instruction -->
-<textarea 
-id="instruction" 
-placeholder="Enter instruction (ex: Fill this form)">
+    <!-- Instruction -->
+    <textarea id="instruction" placeholder="Enter instruction (ex: Fill this form)">
 </textarea>
 
-<br><br>
+    <br><br>
 
-<!-- Run button -->
-<button id="runBtn">Run Task</button>
+    <!-- Run button -->
+    <button id="runBtn">Run Task</button>
 
-<br><br>
+    <br><br>
 
-<!-- Gemini question container -->
-<div id="userInputContainer"></div>
+    <!-- Gemini question container -->
+    <div id="userInputContainer"></div>
 
-<br>
+    <br>
 
-<!-- Status messages -->
-<div id="status"></div>
+    <!-- Status messages -->
+    <div id="status"></div>
 
-<script src="popup.js"></script>
+    <!-- Drive Manager Area -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <span id="storageInfo" style="font-size: 12px; color: #666;">Drive: - items</span>
+        <button id="driveBtn"
+            style="width: auto; padding: 5px 10px; margin: 0; background: #f0f0f5; color: #333; border: 1px solid #ccc;">🗄️
+            Manage Drive</button>
+    </div>
+
+    <script src="lib/dexie.min.js"></script>
+    <script src="db.js"></script>
+    <script src="popup.js"></script>
 
 </body>
+
 </html>
