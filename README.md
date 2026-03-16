@@ -1,6 +1,6 @@
-# UI Pilot : AI UI Navigator Agent
+# UI Pilot — Universal Overlay Handler
 
-> Automate any web form or UI workflow using your personal data vault, powered by Gemini 2.5 Flash and Playwright.
+An AI-powered browser automation agent that fills forms, clicks buttons, and navigates websites autonomously. It combines a **Chrome Extension** (the control panel) with a **Python backend** (Playwright + Gemini 2.0 Flash) to let you describe a task in plain English and watch the agent carry it out.
 
 ![Architecture](001_Architecture.jpg)
 <img src="001_screenshots.jpeg" alt="Alt text" width="400"/>
@@ -8,476 +8,171 @@
 
 ---
 
-## What is UI Pilot?
+## How It Works
 
-UI Pilot is an AI-powered browser automation agent that fills forms, navigates websites, and extracts data — using your own personal information stored locally. You give it a URL and a natural-language instruction. It opens a real Chrome browser, reads the page, reasons about what to do next using Gemini 2.0 Flash, and executes actions step by step until the task is complete.
+```
+Chrome Extension (popup)
+       │
+       │  POST /run-agent  {instruction, url, user_data}
+       ▼
+FastAPI Server (app.py / server.py)
+       │
+       ├──► playwright_runner.py   — opens browser, collects elements, takes screenshot
+       │
+       └──► navigator.py (Gemini)  — reasons over screenshot + elements → next action
+                    │
+                    └──► executes action → loop until done
+```
 
-All personal data (name, email, address, documents, photos) lives in your browser's IndexedDB — never on a server. The agent receives it only at the moment a task runs.
+1. You type an instruction in the popup (e.g. *"Fill in the registration form with my details"*).
+2. The extension sends the instruction + your stored profile data to the local FastAPI server.
+3. `playwright_runner.py` opens a Chromium window, collects all interactive elements on the page, annotates a screenshot with numbered bounding boxes, and returns the payload.
+4. `navigator.py` feeds the screenshot and element list to **Gemini 2.0 Flash** (via Vertex AI), which returns the single best next action as JSON.
+5. The action is executed (click, type, scroll, key press, etc.) and the loop repeats until the task is complete.
+6. If the agent needs information it doesn't have, it sends an `ask_user` response back to the extension, which shows a chat-style input box for you to answer. Answers can optionally be saved to Drive for future reuse.
 
 ---
 
-## Key Features
+## Features
 
-- **Natural language instructions** — "Fill this job application using my resume and contact details"
-- **Personal data vault** — Store profile fields, documents (PDF/DOCX), and images locally in IndexedDB
-- **Smart form filling** — Gemini reads the page screenshot + DOM elements and maps your Drive data to form fields semantically
-- **Ask when unsure** — If required data is missing from your Drive, the agent pauses and asks you directly, then saves your answer for next time
-- **File uploads** — Injects documents (resumes, ID cards, certificates) into file input fields, including Google Drive iframe pickers
-- **Persistent Chrome session** — Uses a real Chrome profile so saved logins, cookies, and extensions carry over between runs
-- **Zero hallucination policy** — The agent is strictly instructed never to guess or invent personal information
-
----
-
-## Architecture Overview
-
-```
-┌─────────────────────────────────────────────────────┐
-│  React Frontend (Vite)                               │
-│                                                      │
-│  UI Pilot Panel                                        │
-│  ├── ChatView          ← URL + instruction input     │
-│  │   └── calls /run-agent, handles ask_user loop     │
-│  └── ManageDriveView   ← profile + doc manager       │
-│      └── useAgentDB    ← Dexie/IndexedDB hook        │
-└──────────────────┬──────────────────────────────────┘
-                   │  POST /run-agent
-                   │  POST /user-response
-                   ▼
-┌─────────────────────────────────────────────────────┐
-│  FastAPI Backend (Python)                            │
-│                                                      │
-│  /run-agent     ← main agent loop (up to 30 steps)  │
-│  /user-response ← injects user answer into session  │
-│  sessions{}     ← in-memory session store           │
-│  collect_elements_async  ← DOM scraper              │
-│  draw_boxes      ← annotates screenshot for Gemini  │
-└──────────┬────────────────────────┬─────────────────┘
-           │                        │
-           ▼                        ▼
-┌──────────────────┐   ┌────────────────────────────┐
-│  Vertex AI       │   │  Playwright (Chromium)      │
-│  Gemini 2.0 Flash│   │  Persistent Chrome context  │
-│  Vision + reason │   │  click/type/scroll/upload   │
-└──────────────────┘   └────────────────────────────┘
-```
-
-### Agent loop (per step)
-
-1. Collect all interactive DOM elements from the current page
-2. Take a screenshot and annotate it with numbered bounding boxes
-3. Send screenshot + element list + goal + history to Gemini
-4. Gemini returns a single JSON action
-5. Execute the action via Playwright
-6. If action is `ask_user` → pause, return question to frontend, wait for answer
-7. If action is `done` → clean up session, return summary
-8. Otherwise → append to history, go to step 1
+- **Natural language control** — describe what you want in plain English
+- **Annotated vision** — Gemini sees a screenshot with numbered element overlays, not just raw HTML
+- **Smart element detection** — classifies buttons, inputs, textareas, dropdowns, links, radio buttons, and checkboxes
+- **Drive storage** — a local IndexedDB vault (powered by Dexie.js) stores your personal info, documents, and images so the agent can autofill forms without re-entering data
+- **Interactive Q&A** — the agent asks follow-up questions mid-task when it needs info; answers are shown in a chat UI inside the popup
+- **Password masking** — password fields are automatically blurred in screenshots before being sent to the model
+- **Windows compatible** — `server.py` sets the Proactor event loop policy for full Playwright support on Windows
 
 ---
 
 ## Project Structure
 
 ```
-cognito/
+├── server.py              — Entry point; starts uvicorn with correct event loop
+├── app.py                 — FastAPI app with /run-agent and /user-response endpoints
+├── navigator.py           — Agent loop: Gemini reasoning + Playwright action execution
+├── playwright_runner.py   — Element collection, screenshot capture, box annotation
 │
-├── backend/
-│   └── app.py                  # FastAPI server — agent loop, Playwright, Gemini
-│
-├── frontend/
-│   └── src/
-│       ├── components/cognito/
-│       │   ├── CognitoPanel.tsx     # Slide-in panel shell, tab routing
-│       │   ├── ChatView.tsx         # Chat UI + API integration
-│       │   └── ManageDriveView.tsx  # Profile/doc/image manager
-│       ├── hooks/
-│       │   └── useAgentDB.ts        # Dexie IndexedDB wrapper + buildAgentPayload()
-│       └── pages/
-│           └── Index.tsx            # Landing page
-│
-├── chrome-extension/            # Legacy Chrome extension (optional)
-│   ├── popup.html / popup.js
-│   ├── drive.html / drive.js / drive.css
-│   └── db.js                   # Dexie schema (mirrors useAgentDB.ts)
-│
-├── navigator.py                 # Standalone CLI agent (legacy)
-├── playwright_runner.py         # Standalone element collector (legacy)
-│
-└── .env                        # Google Cloud credentials
+├── manifest.json          — Chrome Extension manifest (MV3)
+├── popup.html / popup.js  — Extension popup UI + run/answer logic
+├── drive.html / drive.js  — Drive Manager UI (profile, documents, images)
+├── drive.css              — Shared stylesheet
+└── db.js                  — Dexie.js database schema and helpers
 ```
 
 ---
 
 ## Prerequisites
 
-| Requirement | Version |
-|---|---|
-| Python | 3.9+ |
-| Node.js | 18+ |
-| Google Chrome | Latest stable |
-| Google Cloud project | With Vertex AI API enabled |
+- Python 3.10+
+- Node.js (for Playwright browser binaries)
+- A Google Cloud project with Vertex AI enabled
+- `gcloud` CLI authenticated (`gcloud auth application-default login`)
 
 ---
 
-## Installation
+## Setup
 
-### 1. Clone the repository
+### 1. Clone the repo
 
 ```bash
-git clone https://github.com/your-org/UniversalOverlayHandler.git
+git clone https://github.com/genesis106/UniversalOverlayHandler.git
 cd UniversalOverlayHandler
 ```
 
-### 2. Backend setup
+### 2. Install Python dependencies
 
 ```bash
-cd backend
-pip install fastapi uvicorn playwright pillow python-dotenv google-genai
+pip install fastapi uvicorn playwright pillow google-genai python-dotenv
 playwright install chromium
 ```
 
-Create a `.env` file in the `backend/` directory:
+### 3. Configure environment variables
+
+Create a `.env` file in the project root:
 
 ```env
-GOOGLE_CLOUD_PROJECT=your-project-id
+GOOGLE_CLOUD_PROJECT=your-gcp-project-id
 GOOGLE_CLOUD_LOCATION=us-central1
 ```
 
-Place your Google Cloud service account JSON file in the `backend/` directory. The server auto-detects any `.json` file with `"type": "service_account"` in the same folder. Alternatively, set the environment variable explicitly:
-
-```env
-GOOGLE_APPLICATION_CREDENTIALS=/path/to/your-service-account.json
-```
-
-### 3. Frontend setup
+### 4. Start the backend server
 
 ```bash
-cd frontend
-npm install
-npm install dexie
+python server.py
 ```
 
-### 4. Verify Vertex AI access
+The server starts at `http://127.0.0.1:8000`.
 
-Ensure your service account has the **Vertex AI User** role (`roles/aiplatform.user`) in your Google Cloud project, and that the Vertex AI API is enabled.
+### 5. Load the Chrome Extension
 
----
-
-## Running the Project
-
-### Start the backend
-
-```bash
-cd backend
-uvicorn app:app --reload --port 8000
-```
-
-You should see:
-
-```
-🔑 Auto-detected service account: /path/to/key.json
-🔐 Vertex AI — Project: your-project-id | SA: ...
-INFO: Application startup complete.
-```
-
-### Start the frontend
-
-```bash
-cd frontend
-npm run dev
-```
-
-Open `http://localhost:5173` in your browser. The UI Pilot panel slides in from the right.
+1. Open Chrome and go to `chrome://extensions`
+2. Enable **Developer mode** (top right)
+3. Click **Load unpacked** and select the project folder
+4. The **UI Pilot** icon will appear in your toolbar
 
 ---
 
 ## Usage
 
-### Step 1 — Populate your Drive
+### Running a task
 
-Open the **Manage Drive** tab in the Cognito panel and add your personal information:
+1. Navigate to any webpage in Chrome
+2. Click the **UI Pilot** extension icon
+3. Type your instruction (e.g. *"Search for noise-cancelling headphones and add the first result to cart"*)
+4. Optionally override the URL, or leave it blank to use the active tab
+5. Click **▶ Run Agent**
 
-- **Personal** — Full Name, Date of Birth, Gender, etc.
-- **Professional** — Company, Job Title, Skills, LinkedIn URL
-- **Job Info** — Desired Role, Salary Expectation, Availability
-- **Documents** — Upload your resume, certificates, ID cards (PDF/DOCX/image)
-- **Images** — Profile photo, passport scan, signature
+### Drive Manager
 
-All data is stored locally in your browser's IndexedDB. Nothing is sent to any server until you run a task.
+Click the **🗄️ Drive** button in the popup to open the Drive Manager. Here you can:
 
-### Step 2 — Run a task
+- Store personal info (name, email, address, education, work history, etc.) organized by category
+- Upload documents (PDF, DOC, DOCX) — resume, certificate, ID card, etc.
+- Upload images (PNG, JPG, WEBP) — photos, signatures, ID scans
 
-Switch to the **Chat** tab, paste a URL, type your instruction, and press Send:
+All stored data is sent to the agent at the start of each task so it can autofill forms without asking.
 
-```
-URL:         https://jobs.example.com/apply/senior-engineer
-Instruction: Fill this job application using my resume and professional details
-```
+### Answering agent questions
 
-The agent opens Chrome, navigates to the URL, and starts filling the form. You can watch it work in the browser window that appears.
-
-### Step 3 — Answer questions (if prompted)
-
-If the agent encounters a field it can't fill from your Drive, it pauses and asks you directly in the chat:
-
-```
-Agent: What is your mother's maiden name?
-You:   [type answer]    ☑ Save to Drive for next time
-```
-
-Checking "Save to Drive" writes the answer to IndexedDB so the agent won't ask again in future sessions.
-
-### Step 4 — Done
-
-When the form is submitted and a confirmation page is visible, the agent reports back:
-
-```
-✅ Task complete!
-Successfully submitted the application for Senior Engineer at Example Corp.
-```
+If the agent encounters a field it can't fill from your Drive, it will pause and ask in the popup chat. Type your answer and press Enter. Check **"Save to Drive"** to store the answer for future tasks.
 
 ---
 
-## API Reference
+## Action Types
 
-### `POST /run-agent`
+`playwright_runner.py` accepts the following `action_type` values to filter which elements are collected:
 
-Starts or resumes an agent session.
-
-**Request body:**
-
-```json
-{
-  "instruction": "Fill this contact form",
-  "url": "https://example.com/contact",
-  "action_type": "CLICK_INPUT_ALL",
-  "session_id": "1718000000000",
-  "user_data": {
-    "profile": {
-      "personal": { "Full Name": "Jane Doe", "Email": "jane@example.com" },
-      "work":     { "Company": "TechCorp", "Job Title": "Engineer" }
-    },
-    "documents": [
-      { "name": "Resume.pdf", "type": "resume", "mimeType": "application/pdf", "content": "<base64>" }
-    ],
-    "images": [
-      { "name": "photo.jpg", "mimeType": "image/jpeg", "content": "<base64>" }
-    ]
-  }
-}
-```
-
-**Responses:**
-
-```json
-{ "status": "ask_user", "question": "What is your father's name?" }
-{ "status": "done",     "summary": "Form submitted successfully." }
-{ "status": "error",    "message": "Browser closed unexpectedly." }
-```
-
-**`action_type` options:**
-
-| Value | Selects |
+| Action Type | Elements Collected |
 |---|---|
-| `CLICK_INPUT_ALL` | All interactive elements (default, recommended) |
-| `CLICK_BUTTON` | Buttons and submit inputs only |
-| `FILL_INPUT` | Text inputs and textareas only |
-| `CLICK_LINK` | Anchor tags only |
-| `SELECT_RADIO` | Radio buttons only |
+| `CLICK_BUTTON` | Buttons and submit inputs |
+| `FILL_INPUT` | Text inputs and textareas |
 | `SELECT_DROPDOWN` | Select elements and comboboxes |
+| `CLICK_LINK` | Anchor tags |
+| `SELECT_RADIO` | Radio buttons |
+| `CLICK_INPUT_ALL` | Everything (default) |
 
 ---
 
-### `POST /user-response`
+## Configuration
 
-Delivers the user's answer to a paused session.
-
-**Request body:**
-
-```json
-{ "answer": "Robert Doe", "session_id": "1718000000000" }
-```
-
-**Response:**
-
-```json
-{ "status": "received" }
-```
-
-After this call, re-call `POST /run-agent` with the same `session_id` to continue the agent loop.
-
----
-
-## Gemini Actions
-
-Gemini returns exactly one JSON action per step. All available actions:
-
-| Action | Shape | Effect |
+| Variable | Default | Description |
 |---|---|---|
-| `click` | `{"action":"click","element_id":5}` | Mouse click at element center |
-| `type` | `{"action":"type","element_id":3,"text":"..."}` | Type text into focused field |
-| `clear_and_type` | `{"action":"clear_and_type","element_id":3,"text":"..."}` | Select all, then type |
-| `upload_file` | `{"action":"upload_file","element_id":7,"filename":"Resume.pdf"}` | Inject file from Drive into file input |
-| `scroll` | `{"action":"scroll","direction":"down"}` | Scroll page (down or up) |
-| `key` | `{"action":"key","key":"Enter"}` | Press keyboard key |
-| `wait` | `{"action":"wait","seconds":2}` | Pause for N seconds |
-| `go_back` | `{"action":"go_back"}` | Browser back navigation |
-| `ask_user` | `{"action":"ask_user","question":"..."}` | Pause loop, request info from user |
-| `done` | `{"action":"done","summary":"..."}` | Task complete, close session |
-
-**Anti-hallucination rules enforced in the system prompt:**
-- Gemini must use semantic matching to map form fields to Drive data (e.g. "Far's Name" → "Father's Name")
-- If required data is not in Drive, `ask_user` is mandatory — guessing is forbidden
-- `done` is only allowed after a visible confirmation or success page
+| `GOOGLE_CLOUD_PROJECT` | *(required)* | GCP project ID for Vertex AI |
+| `GOOGLE_CLOUD_LOCATION` | `us-central1` | Vertex AI region |
+| `MAX_STEPS` | `30` | Maximum agent steps per task |
 
 ---
 
-## Data Storage (IndexedDB Schema)
+## Tech Stack
 
-All data is stored locally using [Dexie.js](https://dexie.org/) in a database named `UIAgentDrive`.
-
-### `profile` table
-
-| Column | Type | Description |
-|---|---|---|
-| `key` | string (PK) | Field name, e.g. "Full Name" |
-| `value` | string | Field value, e.g. "Jane Doe" |
-| `category` | string | One of: personal, contact, education, work, financial, medical, social, other |
-
-### `documents` table
-
-| Column | Type | Description |
-|---|---|---|
-| `id` | number (auto) | Primary key |
-| `name` | string | Filename, e.g. "Resume_2024.pdf" |
-| `type` | string | resume / certificate / id_card / transcript / other |
-| `content` | string | Base64-encoded file content |
-| `mimeType` | string | e.g. "application/pdf" |
-| `dateAdded` | string | ISO timestamp |
-
-### `images` table
-
-| Column | Type | Description |
-|---|---|---|
-| `id` | number (auto) | Primary key |
-| `name` | string | Filename |
-| `content` | string | Base64-encoded image |
-| `mimeType` | string | e.g. "image/jpeg" |
-| `dateAdded` | string | ISO timestamp |
+| Layer | Technology |
+|---|---|
+| Browser automation | Playwright (Python) |
+| AI reasoning | Gemini 2.5 Flash via Vertex AI (`google-genai`) |
+| Backend | FastAPI + Uvicorn |
+| Chrome Extension | Manifest V3, vanilla JS |
+| Local storage | Dexie.js (IndexedDB) |
+| Image processing | Pillow |
 
 ---
-
-## Session Lifecycle
-
-Sessions are held in a Python dict (`sessions{}`) in memory on the FastAPI server. Each session stores:
-
-```python
-sessions[session_id] = {
-    "p":           playwright_instance,
-    "browser":     chromium_persistent_context,
-    "page":        active_page,
-    "history":     [list_of_past_actions],
-    "goal":        original_instruction,
-    "action_type": selector_strategy,
-    "user_data":   drive_payload,
-    # set transiently by /user-response, deleted after first Gemini read:
-    "user_input":  "user answer string",
-}
-```
-
-Sessions are destroyed (browser closed, memory freed) when:
-- The agent emits `done`
-- Max steps (30) are reached
-- A `TargetClosedError` or unhandled exception occurs
-
-> **Note:** Sessions are in-memory only. Restarting the server clears all sessions.
-
----
-
-## Environment Variables
-
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `GOOGLE_CLOUD_PROJECT` | Yes | — | GCP project ID |
-| `GOOGLE_CLOUD_LOCATION` | No | `us-central1` | Vertex AI region |
-| `GOOGLE_APPLICATION_CREDENTIALS` | No | auto-detected | Path to service account JSON |
-
----
-
-## Troubleshooting
-
-**`File .json was not found` on startup**
-
-The service account JSON is missing or in the wrong location. Either set `GOOGLE_APPLICATION_CREDENTIALS` in your `.env`, or place the JSON file in the same directory as `app.py`.
-
-**`TargetClosedError: Page.wait_for_timeout`**
-
-The Chrome window was closed manually during a run, or the browser crashed. The server now catches this and returns `{"status":"error"}` instead of a 500. Start a new task to open a fresh browser.
-
-**Agent asks for data you already added to Drive**
-
-The field name in Drive may not match what Gemini is looking for. Try using the exact label the form uses (e.g. if the form says "Father's Name", add that exact key to Drive). Gemini does fuzzy matching but exact matches are more reliable.
-
-**Form fills incorrectly / agent gets stuck**
-
-Increase the `MAX_STEPS` value in `app.py` (default: 30) for long multi-page forms. For dynamic single-page apps, try adding a `wait` step by instructing the agent to "wait for the page to load before proceeding".
-
-**CORS errors in the browser console**
-
-Ensure the FastAPI server is running on port 8000 and the `API_BASE` constant at the top of `ChatView.tsx` matches. The backend allows all origins by default.
-
----
-
-## Development Notes
-
-### Adding a new Drive category
-
-1. Add the category name to `PROFILE_CATEGORIES` in `db.js` and `useAgentDB.ts`
-2. Add suggested field names to `FIELD_SUGGESTIONS` in both files
-3. Add a tab entry in `ManageDriveView.tsx` and map it in `TAB_TO_CATEGORY`
-
-### Changing the AI model
-
-Update `MODEL_ID` in `app.py`. The system is tested with `gemini-2.0-flash`. Vision capability is required — ensure any replacement model supports image input.
-
-### Running without a GUI (headless mode)
-
-Change `headless=False` to `headless=True` in the `launch_persistent_context` call in `app.py`. Note that some sites detect headless Chrome and may behave differently.
-
-### Chrome extension (legacy)
-
-The `chrome-extension/` folder contains the original popup-based UI that predates the React frontend. It connects to the same FastAPI backend and uses the same `db.js` IndexedDB schema. It can be loaded unpacked in Chrome via `chrome://extensions` → "Load unpacked" for use as a browser sidebar.
-
----
-
-## Security Considerations
-
-- **Local data only** — Profile data never leaves your machine except as part of a `/run-agent` request to your local FastAPI server (127.0.0.1). The server is not exposed to the internet by default.
-- **Service account key** — Keep your Google Cloud service account JSON out of version control. Add `*.json` to `.gitignore`.
-- **Session isolation** — Each task gets a unique `session_id`. Sessions are isolated in memory and cannot access each other's data.
-- **No auth on the API** — The FastAPI server has no authentication. Do not expose port 8000 to the public internet.
-
----
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/my-feature`
-3. Commit your changes: `git commit -m "add my feature"`
-4. Push and open a pull request
-
-Please open an issue first for significant changes.
-
----
-
-## License
-
-MIT — see [LICENSE](LICENSE) for details.
-
----
-
-## Acknowledgements
-
-- [Playwright](https://playwright.dev/) — browser automation
-- [Gemini 2.0 Flash](https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/gemini) — vision + reasoning
-- [Dexie.js](https://dexie.org/) — IndexedDB wrapper
-- [FastAPI](https://fastapi.tiangolo.com/) — Python web framework
-- [Framer Motion](https://www.framer.com/motion/) — React animations
